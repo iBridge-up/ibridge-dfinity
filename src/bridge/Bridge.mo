@@ -1,5 +1,5 @@
 import Debug "mo:base/Debug";
-import ICErc20Handler "canister:ICErc20Handler";
+import ERC20Handler "canister:ERC20Handler";
 import Error "mo:base/Error";
 import Text "mo:base/Text";
 import Nat "mo:base/Nat8";
@@ -14,7 +14,7 @@ import Bool "mo:base/Bool";
 import Cycles "mo:base/ExperimentalCycles";
 import Types "./Types";
 import ShareTypes "../share/Types";
-import IC "../share/ic";
+import IC "../share/IC";
 actor Bridge {
     //fee
     private stable let fee : Nat = 10;
@@ -61,7 +61,7 @@ actor Bridge {
             // 1 先判断手续费是否正确
             // if (_fee < fee) { return false; }
             // 2 resourceId 获取到对应的handler类型，判断是否正确
-            // let r1 = await ICErc20Handler.initToken("ICP TEST", "WICP", 8, 100000, owner_);
+            // let r1 = await ERC20Handler.initToken("ICP TEST", "WICP", 8, 100000, owner_);
             var depositNonce :Nat64  = switch (depositNonceAcc.get(destinationChainID)) {
                 case(?n) {
                     let r = n + 1;
@@ -74,7 +74,7 @@ actor Bridge {
                 };
             };
             let destinationChainID8 = Nat8.fromNat(Nat32.toNat(destinationChainID));
-            let res = (await ICErc20Handler.deposit(resourceID,destinationChainID8,depositNonce,depositer,
+            let res = (await ERC20Handler.deposit(resourceID,destinationChainID8,depositNonce,depositer,
                 recipientAddress,amount,fee));
             switch(res) {
               case null Debug.print("Bridge deposit: desIdNonce is null" );
@@ -85,7 +85,7 @@ actor Bridge {
 
     // get deposit record
     public shared(msg) func getDepositRecord(resourceID: Text,destinationChainID: Nat8, depositNonce: Nat64) : async ?DepositRecord {
-        await ICErc20Handler.getDepositRecordByDesIdAndNonce(resourceID,destinationChainID, depositNonce);
+        await ERC20Handler.getDepositRecordByDesIdAndNonce(resourceID,destinationChainID, depositNonce);
     };
 
     /**

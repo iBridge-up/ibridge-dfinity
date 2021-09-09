@@ -14,26 +14,26 @@ def build(c):
 @task(build)
 def install(c):
     c.run("dfx canister --no-wallet install Bridge")
-    c.run("dfx canister --no-wallet install ICErc20Handler")
+    c.run("dfx canister --no-wallet install ERC20Handler")
     print("\033[0;32;40m install completed\033[0m")
 
 
 @task(build)
 def upgrade(c):
     c.run("dfx canister --no-wallet install Bridge -m reinstall --all")
-    c.run("dfx canister --no-wallet install ICErc20Handler -m reinstall --all")
+    c.run("dfx canister --no-wallet install ERC20Handler -m reinstall --all")
     print("\033[0;32;40m upgrade completed\033[0m")
 
 @task(upgrade, default=True)
 def deposit(c):
     print("\033[0;32;40m set resoure ...\033[0m")
-    canister_id = c.run("dfx canister id ICErc20Handler").stdout.replace("\n", "")
+    canister_id = c.run("dfx canister id ERC20Handler").stdout.replace("\n", "")
     principal_id = c.run("dfx identity get-principal").stdout.replace("\n", "")
     recipient_id = c.run("dfx --identity id_alice identity get-principal").stdout.replace("\n", "")
-    print("\033[0;32;40m ICErc20Handler \"" + canister_id + "\" \033[0m")
+    print("\033[0;32;40m ERC20Handler \"" + canister_id + "\" \033[0m")
     print("\033[0;32;40m depositer_id \"" + principal_id + "\" \033[0m")
     print("\033[0;32;40m recipient_id \"" + recipient_id + "\" \033[0m")
-    rid = c.run("dfx canister call ICErc20Handler setResource '(1,\"WICP Name\",\"WICP\",8,1000000,principal \"" + principal_id + "\")'").stdout
+    rid = c.run("dfx canister call ERC20Handler setResource '(1,\"WICP Name\",\"WICP\",8,1000000,principal \"" + principal_id + "\")'").stdout
     resource_id = rid.replace("\n", "").replace(" ", "").replace(
         "(\"", "").replace(
         "\")", "")

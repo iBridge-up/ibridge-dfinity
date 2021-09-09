@@ -42,7 +42,7 @@ actor ERC20Handler {
         // provision cycles for next call (might need some more)
         Cycles.add(5_000_000_000_000); 
         var token_ = ?(await Tokens.Token(_name, _symbol, _decimals, _totalSupply, owner_));
-        let thisAddress = Principal.fromActor(ICErc20Handler);
+        let thisAddress = Principal.fromActor(ERC20Handler);
         if (token_ != null) {
             let tokenAddress : Principal = await Option.unwrap(token_).getTokenAddress();
             var tokenAddressText = Principal.toText(tokenAddress);
@@ -106,7 +106,7 @@ actor ERC20Handler {
                     };
                     case(_) {
                         // lockERC20(tokenAddress, depositer, address(this), amount);
-                        let contractAddress = Principal.fromActor(ICErc20Handler);
+                        let contractAddress = Principal.fromActor(ERC20Handler);
                         // 侵入性
                         let lockR = await lockERC20(Option.unwrap(token_),depositer,contractAddress,amount);
                     };
