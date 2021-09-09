@@ -1,5 +1,5 @@
 import Debug "mo:base/Debug";
-import ICErc20Handler "canister:ICErc20Handler";
+import ICErc20Handler "canister:ERC20Handler";
 import Error "mo:base/Error";
 import Text "mo:base/Text";
 import Nat "mo:base/Nat8";
@@ -14,7 +14,7 @@ import Bool "mo:base/Bool";
 import Cycles "mo:base/ExperimentalCycles";
 import Types "./Types";
 import ShareTypes "../share/Types";
-import IC "../share/ic";
+import IC "../share/IC";
 actor Bridge {
     //fee
     private stable let fee : Nat = 10;
@@ -31,168 +31,141 @@ actor Bridge {
     type ProposalStatus = Types.ProposalStatus;
     type Proposal = Types.Proposal;
     type VoteResult = Types.VoteResult;
+    type CommonResult = Types.CommonResult;
 
     private let _relayerThreshold :Nat = 10;
 
     // destinationChainID + depositNonce => dataHash => Proposal
     private var _proposals = HashMap.HashMap<Text, HashMap.HashMap<Text, Proposal>>(1, Text.equal, Text.hash);
 
-    system func preupgrade() {
-        depositNonceAccEntries := Iter.toArray(depositNonceAcc.entries());
+     private func _onlyAdminOrRelayer() : async Bool {
+        return false;
     };
 
-    system func postupgrade() {
-        depositNonceAcc := HashMap.fromIter<Nat32, Nat64>(depositNonceAccEntries.vals(), 1, Nat32.equal, func(x : Nat32) : Hash.Hash {x});
-        depositNonceAccEntries := [];
+    private func _onlyAdmin() : async Bool {
+        return false;
     };
 
-    public shared(msg) func setFeeTo(to: Principal) : async Bool {
-        var n8 : Nat8 = 1;
-        var n : Nat = Nat8.toNat(n8);
-        var n32 : Nat32 = Nat32.fromNat(n);
-        assert(msg.caller == owner_);
-        feeTo := to;
-        return true;
+    private func _onlyRelayers() : async Bool {
+        return false;
     };
 
+    private func _relayerBit(relayer: Text) : async Nat {
+        return 1;
+    };
+
+    private func _hasVoted(proposal: Proposal, relayer: Text) : async Bool { 
+        return false;
+    };
+
+
+    public shared(msg) func _hasVotedOnProposal(destNonce: Nat, dataHash: Text, relayer: Text) : async Bool { 
+        return false;
+    };
+
+
+    public shared(msg) func isRelayer(relayer: Text) : async Bool {
+        return false;
+    };
+
+
+    public shared(msg) func renounceAdmin(newAdmin: Text) : async Bool { 
+        // assert (_onlyAdmin());
+        return false;
+    };
+  
+    public shared(msg) func adminPauseTransfers() : async Bool {
+        // assert (_onlyAdmin());
+        return false;
+    };
+
+    public shared(msg) func adminUnpauseTransfers() : async Bool {
+        // assert (_onlyAdmin());
+        return false;
+    };
+
+    public shared(msg) func adminChangeRelayerThreshold(newThreshold: Nat) : async Bool {
+        // assert (_onlyAdmin());
+        return false;
+    };
+
+    public shared(msg) func adminAddRelayer(relayerAddress: Text) : async Bool {
+        // assert (_onlyAdmin());
+        return false;
+    };
+
+    public shared(msg) func adminRemoveRelayer(relayerAddress: Text) : async Bool {
+        // assert (_onlyAdmin());
+        return false;
+    };
+
+    public shared(msg) func adminSetResource(handlerAddress: Text, resourceID: Text, tokenAddress: Text) : async CommonResult {
+        // assert (_onlyAdmin());
+        return #Ok(null);
+    };
+
+    public shared(msg) func adminSetGenericResource(
+        handlerAddress: Text,
+        resourceID: Text,
+        contractAddress: Text,
+        depositFunctionSig: Text,
+        depositFunctionDepositerOffset: Nat,
+        executeFunctionSig: Text
+    ) : async CommonResult { 
+        // assert (_onlyAdmin());
+        return #Ok(null);
+    };     
+
+    public shared(msg) func adminSetBurnable(handlerAddress: Text, tokenAddress: Text) : async CommonResult { 
+        // assert (_onlyAdmin());
+        return #Ok(null);
+    };
+
+    public shared(msg) func getProposal(originChainID: Nat, depositNonce: Nat, dataHash: Text) :  async ?Proposal {
+        return null;
+    };
+
+    public shared(msg) func _totalRelayers() : async Nat {
+        return 1;
+    };
+
+    public shared(msg) func adminChangeFee(newFee: Nat) : async Bool {
+        // assert (_onlyAdmin());
+        return false;
+    };
+
+    public shared(msg) func adminWithdraw(
+        handlerAddress: Text,
+        tokenAddress: Text,
+        recipient: Text,
+        amountOrTokenID: Nat
+    ) : async CommonResult {
+        // assert (_onlyAdmin())
+        return #Ok(null);
+    };
+    
     public shared(msg) func deposit(resourceID :Text, destinationChainID: Nat32,
-        depositer: Principal,recipientAddress: Principal, amount: Nat, fee: Nat
-        ) : async ?Text {
-            // 1 先判断手续费是否正确
-            // if (_fee < fee) { return false; }
-            // 2 resourceId 获取到对应的handler类型，判断是否正确
-            // let r1 = await ICErc20Handler.initToken("ICP TEST", "WICP", 8, 100000, owner_);
-            var depositNonce :Nat64  = switch (depositNonceAcc.get(destinationChainID)) {
-                case(?n) {
-                    let r = n + 1;
-                    depositNonceAcc.put(destinationChainID, r);
-                    r;
-                };
-                case(_) {
-                    depositNonceAcc.put(destinationChainID, 1);
-                    1;
-                };
-            };
-            let destinationChainID8 = Nat8.fromNat(Nat32.toNat(destinationChainID));
-            let res = (await ICErc20Handler.deposit(resourceID,destinationChainID8,depositNonce,depositer,
-                recipientAddress,amount,fee));
-            switch(res) {
-              case null Debug.print("Bridge deposit: desIdNonce is null" );
-              case (?r) Debug.print("Bridge deposit:" # r);
-          };
-          return res;
+        depositer: Text,recipientAddress: Text, amount: Nat, fee: Nat
+        ) : async CommonResult {
+            return #Ok(null);
       };
 
     // get deposit record
-    public shared(msg) func getDepositRecord(resourceID: Text,destinationChainID: Nat8, depositNonce: Nat64) : async ?DepositRecord {
-        await ICErc20Handler.getDepositRecordByDesIdAndNonce(resourceID,destinationChainID, depositNonce);
-    };
-
-    /**
-        @notice When called, {msg.sender} will be marked as voting in favor of proposal.
-        @notice Only callable by relayers when Bridge is not paused.
-        @param chainID ID of chain deposit originated from.
-        @param depositNonce ID of deposited generated by origin Bridge contract.
-        @param dataHash Hash of data provided when deposit was made.
-        @notice Proposal must not have already been passed or executed.
-        @notice {msg.sender} must not have already voted on proposal.
-        @notice Emits {ProposalEvent} event with status indicating the proposal status.
-        @notice Emits {ProposalVote} event.
-     */
-    public shared(msg) func voteProposal(chainID: Nat32, depositNonce: Nat64, resourceID: Text, dataHash: Text) : async VoteResult {
-        if ( owner_ != msg.caller ) { throw Error.reject(MSG_ONLY_OWNER); };
-        var nonceAndID = Nat32.toText(chainID) # Nat64.toText(depositNonce);
-        // uint72 nonceAndID = (uint72(depositNonce) << 8) | uint72(chainID);
-        // Proposal memory proposal = _proposals[nonceAndID][dataHash];
-        switch(_proposals.get(nonceAndID)) {
-            case (?data) {
-                var proposal = switch (data.get(dataHash)) {
-                    case (?p) p;
-                    case (_) return #Err("proposal not found");
-                };
-                if (proposal.status == #inactive) {
-                    Debug.print("txt");
-                } else {
-                    // judge expiry
-                };
-                if (proposal.status != #cancelled) {
-                    Debug.print("not cancelled");
-                    // proposal.yesVotesTotal += 1;
-
-                    // event record
-
-                    if (proposal.yesVotesTotal >= _relayerThreshold) {
-
-                    }
-                };
-            };
-            case (_) return #Err("proposal not found");
-        };
-
+    public shared(msg) func getDepositRecord(resourceID: Text,destinationChainID: Nat8, depositNonce: Nat) : async CommonResult {
         return #Ok(null);
-
-        // require(_resourceIDToHandlerAddress[resourceID] != address(0), "no handler for resourceID");
-        // require(uint(proposal._status) <= 1, "proposal already passed/executed/cancelled");
-        // require(!_hasVoted(proposal, msg.sender), "relayer already voted");
-
-        // if (proposal._status == ProposalStatus.Inactive) {
-        //     proposal = Proposal({
-        //         _status : ProposalStatus.Active,
-        //         _yesVotes : 0,
-        //         _yesVotesTotal : 0,
-        //         _proposedBlock : uint40(block.number) // Overflow is desired.
-        //     });
-
-        //     emit ProposalEvent(chainID, depositNonce, ProposalStatus.Active, dataHash);
-        // } else if (uint40(sub(block.number, proposal._proposedBlock)) > _expiry) {
-        //     // if the number of blocks that has passed since this proposal was
-        //     // submitted exceeds the expiry threshold set, cancel the proposal
-        //     proposal._status = ProposalStatus.Cancelled;
-
-        //     emit ProposalEvent(chainID, depositNonce, ProposalStatus.Cancelled, dataHash);
-        // }
-
-        // if (proposal._status != ProposalStatus.Cancelled) {
-        //     proposal._yesVotes = (proposal._yesVotes | _relayerBit(msg.sender)).toUint200();
-        //     proposal._yesVotesTotal++; // TODO: check if bit counting is cheaper.
-
-        //     emit ProposalVote(chainID, depositNonce, proposal._status, dataHash);
-
-        //     // Finalize if _relayerThreshold has been reached
-        //     if (proposal._yesVotesTotal >= _relayerThreshold) {
-        //         proposal._status = ProposalStatus.Passed;
-
-        //         emit ProposalEvent(chainID, depositNonce, ProposalStatus.Passed, dataHash);
-        //     }
-        // }
-        // _proposals[nonceAndID][dataHash] = proposal;
     };
 
-
-    public func wallet_receive() : async { accepted: Nat64 } {
-        let amount = Cycles.available();
-        let deposit = Cycles.accept(amount);
-        assert (deposit == amount);
-        { accepted = Nat64.fromNat(amount) };
+    public shared(msg) func voteProposal(chainID: Nat32, depositNonce: Nat, resourceID: Text, dataHash: Text) : async CommonResult {
+        return #Ok(null);
     };
 
-
-    // get cycles
-    public query func getCycles() : async Nat {
-        return Cycles.balance();
+    public shared(msg) func cancelProposal(chainID: Nat32, depositNonce:Nat , dataHash: Text) : async CommonResult {
+        // assert (_onlyAdmin())
+        return #Ok(null);
     };
 
-    private let ic : IC.Self = actor "aaaaa-aa";
-
-    public shared({ caller }) func transferCycles(canisterId: Principal): async() {
-        assert(Principal.equal(owner_, caller));
-        let balance: Nat = Cycles.balance();
-        // We have to retain some cycles to be able to transfer the balance and delete the canister afterwards
-        let cycles: Nat = balance - 100_000_000_000;
-        if (cycles > 0) {
-            Cycles.add(cycles);
-            await ic.deposit_cycles({ canister_id = canisterId });
-        };
+    public shared(msg) func transferFunds(addrs: [Text], amounts: [Nat]) : async CommonResult {
+        // assert (_onlyAdmin())
+        return #Ok(null);
     };
-
 }

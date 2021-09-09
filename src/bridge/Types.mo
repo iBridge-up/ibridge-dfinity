@@ -28,5 +28,10 @@ module {
     public type VoteResult = {
       #Ok : ?Text;
       #Err : Text;
-  };
+    };
+    
+    public type CommonResult = {
+      #Ok : ?Text;
+      #Err : Text;
+    };
 };    
