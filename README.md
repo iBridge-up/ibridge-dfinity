@@ -1,2 +1,1 @@
-# ibridge-dfinity
-IBridge difnity impl
+# IBridge dfinity canister repository

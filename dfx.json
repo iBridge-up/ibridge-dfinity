@@ -1,0 +1,25 @@
+{
+  "canisters": {
+    "ERC20Handler": {
+      "main": "src/erc20/ERC20Handler.mo",
+      "type": "motoko"
+    },
+    "Bridge": {
+      "main": "src/bridge/Bridge.mo",
+      "type": "motoko"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "networks": {
+    "local": {
+      "bind": "127.0.0.1:8000",
+      "type": "ephemeral"
+    }
+  },
+  "version": 1
+}
