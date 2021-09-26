@@ -476,8 +476,7 @@ shared(msg) actor class Bridge(chainID_: Nat16, initialRelayerThreshold_: Nat8, 
         @param data Additional data to be passed to specified handler.
         @notice Emits {Deposit} event.
      */
-    public shared(msg) func deposit(resourceID :Text, destinationChainID: Nat16,
-        depositer: Text,data: DepositData
+    public shared(msg) func deposit(resourceID :Text, destinationChainID: Nat16,data: DepositData
     ) : async CommonResult {
             // whenNotPaused
         if (_paused == true) {
@@ -494,7 +493,7 @@ shared(msg) actor class Bridge(chainID_: Nat16, initialRelayerThreshold_: Nat8, 
                 _ercHandlerCanister := ?actor(handlerAddress);
                 switch(_ercHandlerCanister) {
                     case(?depositHandler) {
-                        let r = await depositHandler.deposit(resourceID,destinationChainID,depositNonce,depositer,data,_fee);
+                        let r = await depositHandler.deposit(resourceID,destinationChainID,depositNonce,Principal.toText(msg.caller),data,_fee);
                         if (r == true) {
                             // Todo 
                             return #Ok(?("deposit success. depositNonce:" # Nat64.toText(depositNonce)));
@@ -603,8 +602,9 @@ shared(msg) actor class Bridge(chainID_: Nat16, initialRelayerThreshold_: Nat8, 
         if (_paused == true) {
             throw Error.reject(MSG_PAUSED);
         };
-
         let proposalId = getProposalId(chainID, depositNonce);
+        Debug.print("voteProposal proposalId :" # debug_show(proposalId));
+
         let defaultPropoasl : Proposal = {
             status = #inactive;
             yesVotes =  [];
@@ -675,6 +675,7 @@ shared(msg) actor class Bridge(chainID_: Nat16, initialRelayerThreshold_: Nat8, 
             _proposals.put(proposalId, tmpMap);
             Debug.print("voteProposal __ :" # debug_show(proposal));
         };
+        Debug.print("voteProposal resourceID :" # debug_show(resourceID));
         return #Ok(?"vote proposal success");
     };
 
@@ -750,8 +751,10 @@ shared(msg) actor class Bridge(chainID_: Nat16, initialRelayerThreshold_: Nat8, 
         if (_paused == true) {
             throw Error.reject(MSG_PAUSED);
         };
-    
+       
         let proposalId = getProposalId(chainID, depositNonce);
+
+        Debug.print("executeProposal proposalId :" # debug_show(proposalId));
         switch(_resourceIDToHandlerAddress.get(resourceID)) {
             case(?handlerAddress){
                 _ercHandlerCanister := ?actor(handlerAddress);
