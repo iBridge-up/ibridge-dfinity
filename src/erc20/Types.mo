@@ -1,31 +1,43 @@
 /**
  * Module     : types.mo
- * Copyright  : 2021 DFinance Team
- * License    : Apache 2.0 with LLVM Exception
- * Maintainer : DFinance Team <hello@dfinance.ai>
- * Stability  : Experimental
+ * Copyright  : 
  */
 
 import Time "mo:base/Time";
 
 module {
-    /// Update call operations
-    public type Operation = {
-        #mint;
-        #burn;
-        #transfer;
-        #approve;
-        #init;
-    };
-    /// Update call operation record fields
-    public type OpRecord = {
-        caller: Principal;
-        op: Operation;
-        index: Nat;
-        from: ?Principal;
-        to: ?Principal;
-        amount: Nat;
+ 
+    public type ResourceContract = {
+        resourceID: Text;
+        contractAddress: Text;
+        tokenActorType: TokenActorType;
         fee: Nat;
-        timestamp: Time.Time;
     };
+
+    public type TokenContract = {
+        contractAddress: Text;
+        tokenActorType: TokenActorType;
+        fee: Nat;
+    };
+
+    // Support multiple token standards
+    public type TokenActorType = {
+        #dft;
+        #ext;
+        #undefined;
+    };
+
+    public type CommonResult = {
+      #Ok : ?Text;
+      #Err : Text;
+    };
+
+    public type TransactionId = Nat;
+
+    public type ProposalResult = {
+      //transfer succeed; but call failed & notify failed
+      #Ok : { txid : TransactionId; error : ?[Text]};
+      #Err : Text;
+    };
+    
 };    
