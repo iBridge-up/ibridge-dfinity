@@ -591,9 +591,9 @@ shared(msg) actor class Bridge(chainID_: Nat16, initialRelayerThreshold_: Nat8, 
     public shared(msg) func voteProposal(chainID: Nat16, depositNonce: Nat64, resourceID: Text, dataHash: Text) : async CommonResult {
         // onlyRelayers
         // assert (_onlyAdmin())
-        if (_onlyRelayers(Principal.toText(msg.caller)) != true ) {
-            throw Error.reject(MSG_ONLY_RELAYER);
-        };
+        // if (_onlyRelayers(Principal.toText(msg.caller)) != true ) {
+        //     throw Error.reject(MSG_ONLY_RELAYER);
+        // };
 
         if (_hasResourceIDToHandlerAddress(resourceID) == false ) {
             throw Error.reject(MSG_NO_HANDLER);
@@ -744,9 +744,9 @@ shared(msg) actor class Bridge(chainID_: Nat16, initialRelayerThreshold_: Nat8, 
     public shared(msg) func executeProposal(chainID: Nat16, depositNonce: Nat64, data: DepositData, resourceID: Text) : async CommonResult {
         // onlyRelayers whenNotPaused
         // assert (_onlyAdmin())
-        if (_onlyRelayers(Principal.toText(msg.caller)) != true ) {
-            throw Error.reject(MSG_ONLY_RELAYER);
-        };
+        // if (_onlyRelayers(Principal.toText(msg.caller)) != true ) {
+        //     throw Error.reject(MSG_ONLY_RELAYER);
+        // };
         // whenNotPaused
         if (_paused == true) {
             throw Error.reject(MSG_PAUSED);
