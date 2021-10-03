@@ -20,21 +20,26 @@ import Time "mo:base/Time";
 import Bool "mo:base/Bool";
 import Types "./Types";
 import SHA256 "./utils/SHA256";
-// import PrincipalExt "./utils/PrincipalExt";
-// import AID "./utils/AccountIdentifier";
+import Cycles "mo:base/ExperimentalCycles";
+import IC "./ic";
 
 
-shared(msg) actor class Bridge(chainID_: Nat16, initialRelayerThreshold_: Nat8, fee_: Nat, expiry_: Nat, owner_ : Principal) {
+
+actor Bridge {
 
     // Limit relayers number because proposal can fit only so much votes
     stable let MAX_RELAYERS : Nat = 200;
 
     type CommonResult = Types.CommonResult;
+    type DepositResult = Types.DepositResult;
     type Proposal = Types.Proposal;
     type RoleData = Types.RoleData;
     type DepositData = Types.DepositData;
     type DepositRecord =  Types.DepositRecord;
     type TokenActorType = Types.TokenActorType;
+
+
+    type CanisterStatus = IC.CanisterStatus;
 
     type ERCHandlerActor = actor {
         deposit : (resourceID: Text,destinationChainID: Nat16,depositNonce: Nat64, depositer: Text, data: DepositData, fee: Nat) -> async Bool;
@@ -45,12 +50,12 @@ shared(msg) actor class Bridge(chainID_: Nat16, initialRelayerThreshold_: Nat8, 
         executeProposal : (resourceID: Text, data: DepositData) ->  async Bool;
     };
 
-    private stable var _owner : Principal = owner_;
-    private stable var _chainID : Nat16 = chainID_;
-    private stable var _relayerThreshold : Nat8 = initialRelayerThreshold_;
-    private stable var _fee : Nat = fee_ ;
-    // expiry_ Time 
-    private stable var _expiry : Nat = expiry_ ;
+    private stable var _owner : ?Principal = null;
+    private stable var _chainID : Nat16 = 0;
+    private stable var _relayerThreshold : Nat8 = 2;
+    private stable var _fee : Nat = 0 ;
+    // _expiry Time  300s 5min
+    private stable var _expiry : Nat = 300000000000;
     private stable var _paused : Bool = false;
 
     private stable var _ercHandlerCanister : ?ERCHandlerActor = null;
@@ -58,6 +63,7 @@ shared(msg) actor class Bridge(chainID_: Nat16, initialRelayerThreshold_: Nat8, 
     stable let RELAYER_ROLE : Text = Nat32.toText(Text.hash("RELAYER_ROLE"));
     stable let DEFAULT_ADMIN_ROLE : Text = "0x00";
 
+    
     
 
     private stable var _rolesEntries : [(Text, RoleData)] = [];
@@ -84,13 +90,40 @@ shared(msg) actor class Bridge(chainID_: Nat16, initialRelayerThreshold_: Nat8, 
     private let MSG_NO_HANDLER = "no handler for resourceID";
 
 
-    // init owner to admin role
-    let rd_ : RoleData = {
-        members = [var Principal.toText(owner_)];
-        adminRole = DEFAULT_ADMIN_ROLE;
-    };
-    _roles.put(DEFAULT_ADMIN_ROLE, rd_);
+    private stable var _initialized = false;
 
+    public shared(msg) func init(chainID_: Nat16, initialRelayerThreshold_: Nat8, fee_: Nat, expiry_: Nat, owner_ : ?Principal) 
+    : async CommonResult {
+        if (_initialized == true) {
+            return #Err(" alread initialized");
+        };
+        switch(owner_) {
+            case(?owner) {
+                _owner := owner_;
+                _chainID := chainID_;
+                _relayerThreshold := initialRelayerThreshold_;
+                _fee := fee_;
+                // _expiry Time 
+                _expiry := expiry_ ;
+                // init owner to admin role
+                let rd_ : RoleData = {
+                    members = [var Principal.toText(owner)];
+                    adminRole = DEFAULT_ADMIN_ROLE;
+                };
+                _roles.put(DEFAULT_ADMIN_ROLE, rd_);
+                _initialized := true;
+                #Ok(?"init success");
+            };
+            case(_) #Err("init failed! need to pass in the parameter owner_");
+        };
+    };
+
+
+    public shared(msg) func getInitialized() : async Bool {
+        _initialized;
+    };
+
+    
     private func onlyAdmin(sender: Text) : async () {
         if (_onlyAdmin(sender) != true ) {
             throw Error.reject(MSG_ONLY_ADMIN);
@@ -477,7 +510,7 @@ shared(msg) actor class Bridge(chainID_: Nat16, initialRelayerThreshold_: Nat8, 
         @notice Emits {Deposit} event.
      */
     public shared(msg) func deposit(resourceID :Text, destinationChainID: Nat16,data: DepositData
-    ) : async CommonResult {
+    ) : async DepositResult {
             // whenNotPaused
         if (_paused == true) {
             throw Error.reject(MSG_PAUSED);
@@ -496,7 +529,7 @@ shared(msg) actor class Bridge(chainID_: Nat16, initialRelayerThreshold_: Nat8, 
                         let r = await depositHandler.deposit(resourceID,destinationChainID,depositNonce,Principal.toText(msg.caller),data,_fee);
                         if (r == true) {
                             // Todo 
-                            return #Ok(?("deposit success. depositNonce:" # Nat64.toText(depositNonce)));
+                            return #Ok({nonce = depositNonce; destinationChainID = destinationChainID;});
                         };
                         return #Err(handlerAddress # " handler deposit error");
                     };
@@ -636,7 +669,7 @@ shared(msg) actor class Bridge(chainID_: Nat16, initialRelayerThreshold_: Nat8, 
             // create proposal
             statusNew := #active; 
             // TODO: emit Proposal
-        } else if (Time.now() - proposal.proposedTime > expiry_) {
+        } else if (Time.now() - proposal.proposedTime > _expiry) {
             statusNew := #cancelled;
             // TODO: ProposalEvent
         };
@@ -706,7 +739,7 @@ shared(msg) actor class Bridge(chainID_: Nat16, initialRelayerThreshold_: Nat8, 
                 };
 
                 // need to discuss in-depth
-                if(Time.now() - proposal.proposedTime > expiry_){
+                if(Time.now() - proposal.proposedTime > _expiry){
                     return #Err("Proposal not at expiry threshold");
                 };
                 
@@ -826,6 +859,46 @@ shared(msg) actor class Bridge(chainID_: Nat16, initialRelayerThreshold_: Nat8, 
     
     private func getProposalId(chainID: Nat16, depositNonce: Nat64) : Blob {
         Blob.fromArray(Array.flatten([ Nat64Ext.toNat8Array(depositNonce),Nat16Ext.toNat8Array(chainID)]));
+    };
+
+    public func wallet_receive() : async { accepted: Nat64 } {
+        let amount = Cycles.available();
+        let deposit = Cycles.accept(amount);
+        assert (deposit == amount);
+        { accepted = Nat64.fromNat(amount) };
+    };
+
+
+    // get cycles
+    public query func getCycles() : async Nat {
+        return Cycles.balance();
+    };
+
+    private let ic : IC.Self = actor "aaaaa-aa";
+
+    
+    public shared({ caller }) func transferCycles(canisterId: Principal): async Bool {
+        switch (_owner) {
+            case(?owner) {
+                assert(Principal.equal(owner, caller));
+                let balance: Nat = Cycles.balance();
+                // We have to retain some cycles to be able to transfer the balance and delete the canister afterwards
+                let cycles: Nat = balance - 100_000_000_000;
+                if (cycles > 0) {
+                    Cycles.add(cycles);
+                    await ic.deposit_cycles({ canister_id = canisterId });
+                };
+                true;
+            };
+            case(_) false;
+        };
+        
+    };
+
+    public shared(msg) func getCanisterStatus(): async ?CanisterStatus {
+        let canisterId = Principal.fromActor(Bridge);
+        let status = await ic.canister_status({ canister_id=canisterId });
+        return ?status;
     };
 
     // system func preupgrade() {
